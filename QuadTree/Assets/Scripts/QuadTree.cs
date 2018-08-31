@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class QuadTree : MonoBehaviour
 {
-
     Tree root;
 
     // The objects that we want stored in the quadtree
@@ -71,7 +70,10 @@ public class QuadTree : MonoBehaviour
 
         public void Draw()
         {
-            // Todo: DrawBox(new Vector2(center.x - halfDimension.x, center.y - halfDimension.y), new Vector2(center.x + halfDimension.x, center.y + halfDimension.y));
+            DrawingUtils.DrawBox(
+                new Vector2(center.x - halfDimension.x, center.y - halfDimension.y), 
+                new Vector2(center.x + halfDimension.x, center.y + halfDimension.y),
+                Color.green);
         }
     }
 
@@ -87,7 +89,7 @@ public class QuadTree : MonoBehaviour
 
     }
 
-    private void OnGenerate()
+    public void OnGenerate()
     {
         myNodes.Clear();
         const int NUM_NODES = 500;
@@ -120,15 +122,16 @@ public class QuadTree : MonoBehaviour
         }
 
         // draw points
+        const float pointRadius = 10;
         foreach (Node node in myNodes)
         {
             if (node.isSpawner)
             {
-                DrawPoint(node.pos, Color.red);
+                DrawingUtils.DrawPoint(node.pos, pointRadius, Color.red);
             }
             else
             {
-                DrawPoint(node.pos);
+                DrawingUtils.DrawPoint(node.pos, pointRadius, Color.gray);
             }
         }
 
@@ -137,7 +140,7 @@ public class QuadTree : MonoBehaviour
         {
             if (!node.isSpawner)
             {
-                DrawPoint(node.pos, Color.green);
+                DrawingUtils.DrawPoint(node.pos, pointRadius, Color.green);
             }
         }
     }
@@ -155,7 +158,7 @@ public class QuadTree : MonoBehaviour
         {
             foreach (Node node in tempRange)
             {
-                DrawLine(_node.pos, node.pos);
+                DrawingUtils.DrawLine(_node.pos, node.pos, Color.cyan);
 
                 if (node.visited == true)
                     continue; // skip nodes already checked
@@ -174,37 +177,7 @@ public class QuadTree : MonoBehaviour
         return ((n2.pos.x - n1.pos.x) * (n2.pos.x - n1.pos.x) + (n2.pos.y - n1.pos.y) * (n2.pos.y - n1.pos.y)) < d * d;
     }
 
-    public void DrawBox(Vector2 topLeft, Vector2 bottomRight)
-    {
-        Vector2 tl = topLeft;
-        Vector2 tr = new Vector2(bottomRight.x, topLeft.y);
-        Vector2 bl = new Vector2(topLeft.x, bottomRight.y);
-        Vector2 br = bottomRight;
-
-        DrawLine(tl, tr); // top
-        DrawLine(bl, br); // bottom
-        DrawLine(tl, bl); // left
-        DrawLine(tr, br); // right            
-    }
-
-    private void DrawLine(Vector2 p1, Vector2 p2)
-    {
-        // Todo: Line Renderer
-    }
-
-    private void DrawPoint(Vector2 p)
-    {
-        DrawPoint(p, Color.gray);
-    }
-
-    private void DrawPoint(Vector2 p, Color drawColor)
-    {
-        float size = 6;
-        float x = p.x - size / 2;
-        float y = p.y - size / 2;
-
-        // Todo: Draw sphere with color
-    }
+    
 
     // The main quadtree class
     class Tree
