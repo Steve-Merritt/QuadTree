@@ -14,10 +14,10 @@ public class DrawingUtils
         Vector2 bl = new Vector2(topLeft.x, bottomRight.y);
         Vector2 br = bottomRight;
 
-        DrawLine(tl, tr, color); // top
-        DrawLine(bl, br, color); // bottom
-        DrawLine(tl, bl, color); // left
-        DrawLine(tr, br, color); // right            
+        DrawLine(tl, tr, color, 1); // top
+        DrawLine(bl, br, color, 1); // bottom
+        DrawLine(tl, bl, color, 1); // left
+        DrawLine(tr, br, color, 1); // right            
     }
 
     public static void DrawLine(Vector3 start, Vector3 end, Color color, int width = 2)

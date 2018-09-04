@@ -4,116 +4,88 @@ using UnityEngine;
 
 public class QuadTree : MonoBehaviour
 {
+    [SerializeField] float nodeRadius = 10;
+    [SerializeField] int nodeCount = 1000;
+    [SerializeField] int spawnerChance = 10;
+    [SerializeField] int maxRange = 20;
+
+    const int width = 1500;
+    const int height = 1080;
+
     Tree root;
+    static int treeCapacity = 1;
 
-    // The objects that we want stored in the quadtree
-    public class Node
-    {
-        public Vector2 pos;
-        public bool isSpawner;
-        public bool visited;
-        public Node(Vector2 _pos, bool _isSpawner)
-        {
-            pos = _pos;
-            isSpawner = _isSpawner;
-            visited = false;
-        }
-    };
+    private List<Node> nodes = new List<Node>();
+    private List<Path> paths = new List<Path>();
 
-    private List<Node> myNodes = new List<Node>();
-
-    // Axis-aligned bounding box with half dimension and center
-    class AABB
-    {
-        public Vector2 center;
-        public Vector2 halfDimension;
-
-        public AABB(Vector2 _center, Vector2 _halfDimension)
-        {
-            center = _center;
-            halfDimension = _halfDimension;
-        }
-
-        public bool ContainsPoint(Vector2 _pt)
-        {
-            if (_pt.x > center.x + halfDimension.x)
-                return false;
-
-            if (_pt.x < center.x - halfDimension.x)
-                return false;
-
-            if (_pt.y > center.y + halfDimension.y)
-                return false;
-
-            if (_pt.y < center.y - halfDimension.y)
-                return false;
-
-            return true;
-        }
-
-        public bool IntersectsAABB(AABB _other)
-        {
-            if (_other.center.x - _other.halfDimension.x > center.x + halfDimension.x)
-                return false;
-
-            if (_other.center.x + _other.halfDimension.x < center.x - halfDimension.x)
-                return false;
-
-            if (_other.center.y - _other.halfDimension.y > center.y + halfDimension.y)
-                return false;
-
-            if (_other.center.y + _other.halfDimension.y < center.y - halfDimension.y)
-                return false;
-
-            return true;
-        }
-
-        public void Draw()
-        {
-            DrawingUtils.DrawBox(
-                new Vector2(center.x - halfDimension.x, center.y - halfDimension.y), 
-                new Vector2(center.x + halfDimension.x, center.y + halfDimension.y),
-                Color.green);
-        }
-    }
-
-    // Use this for initialization
-    void Start()
-    {
-
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-
-    }
+    //
+    // Button Callbacks
+    //
 
     public void OnGenerate()
     {
-        myNodes.Clear();
-        const int NUM_NODES = 500;
-        for (int i = 0; i < NUM_NODES; i++)
+        Clear();
+        CreateNodes();
+        BuildTree();
+        UpdatePaths();
+        DrawNodes();
+    }
+
+    public void OnDrawTree()
+    {
+        if (root != null)
         {
-            int x = Random.Range(10, 790);
-            int y = Random.Range(10, 600);
-            bool isSpawner = Random.Range(0, 10) == 1;
-
-            Node node = new Node(new Vector2(x, y), isSpawner);
-            myNodes.Add(node);
+            root.Draw();
         }
+    }
 
-        // build quadtree
-        Vector2 tl = new Vector2(0, 0);
-        Vector2 br = new Vector2(800, 600);
+    //
+    // Private methods
+    //
+
+    private void Clear()
+    {
+        foreach (Node node in nodes)
+        {
+            node.Reset();
+        }
+        nodes.Clear();
+
+        foreach (Path path in paths)
+        {
+            path.Destroy();
+        }
+        paths.Clear();
+    }
+
+    private void CreateNodes()
+    {
+        for (int i = 0; i < nodeCount; i++)
+        {
+            int x = Random.Range(0, width);
+            int y = Random.Range(0, height);
+            bool isSpawner = Random.Range(0, spawnerChance) == 1;
+
+            Node node = new Node(new Vector2(x, y), nodeRadius, isSpawner);
+            nodes.Add(node);
+        }
+    }
+
+    private void BuildTree()
+    {
+        Vector2 tl = new Vector2(0, height);
+        Vector2 br = new Vector2(width, 0);
         root = new Tree(tl, br);
-        foreach (Node node in myNodes)
+        foreach (Node node in nodes)
         {
             root.Insert(node);
         }
+    }
 
+    private void UpdatePaths()
+    {
         List<Node> nodesInRange = new List<Node>();
-        foreach (Node node in myNodes)
+        foreach (Node node in nodes)
         {
             if (node.isSpawner)
             {
@@ -121,34 +93,29 @@ public class QuadTree : MonoBehaviour
             }
         }
 
-        // draw points
-        const float pointRadius = 10;
-        foreach (Node node in myNodes)
-        {
-            if (node.isSpawner)
-            {
-                DrawingUtils.DrawPoint(node.pos, pointRadius, Color.red);
-            }
-            else
-            {
-                DrawingUtils.DrawPoint(node.pos, pointRadius, Color.gray);
-            }
-        }
-
-        // draw traversable nodes
         foreach (Node node in nodesInRange)
         {
             if (!node.isSpawner)
             {
-                DrawingUtils.DrawPoint(node.pos, pointRadius, Color.green);
+                node.SetColor(Color.blue);
             }
         }
     }
+
+    private void DrawNodes()
+    {
+        foreach (Node node in nodes)
+        {
+            node.Draw();
+        }
+    }
+
     List<Node> GetNodesInPathRange(Node _node)
     {
         _node.visited = true;
 
-        AABB range = new AABB(_node.pos, new Vector2(20, 20));
+        AABB range = new AABB(_node.position, new Vector2(maxRange, maxRange));
+        //range.Draw();
 
         List<Node> nodesInRange = new List<Node>();
 
@@ -156,14 +123,16 @@ public class QuadTree : MonoBehaviour
         List<Node> tempRange = root.QueryRange(range);
         if (tempRange.Count > 0)
         {
-            foreach (Node node in tempRange)
+            foreach (Node n in tempRange)
             {
-                DrawingUtils.DrawLine(_node.pos, node.pos, Color.cyan);
+                Path path = new Path(_node.position, n.position, Color.green);
+                path.Draw();
+                paths.Add(path);
 
-                if (node.visited == true)
+                if (n.visited == true)
                     continue; // skip nodes already checked
 
-                nodesInRange.AddRange(GetNodesInPathRange(node));
+                nodesInRange.AddRange(GetNodesInPathRange(n));
             }
         }
 
@@ -174,194 +143,68 @@ public class QuadTree : MonoBehaviour
 
     private bool NodeInRange(Node n1, Node n2, int d)
     {
-        return ((n2.pos.x - n1.pos.x) * (n2.pos.x - n1.pos.x) + (n2.pos.y - n1.pos.y) * (n2.pos.y - n1.pos.y)) < d * d;
-    }
-
-    
+        return ((n2.position.x - n1.position.x) * (n2.position.x - n1.position.x) + (n2.position.y - n1.position.y) * (n2.position.y - n1.position.y)) < d * d;
+    }  
 
     // The main quadtree class
     class Tree
     {
         // Hold details of the boundary of this node
-        Vector2 topLeft;
-        Vector2 botRight;
-        AABB boundary;
+        AABB bounds;
 
         // Contains details of node
-        Node n;
+        List<Node> nodes = new List<Node>();
 
         // Children of this tree
-        Tree topLeftTree;
-        Tree topRightTree;
-        Tree botLeftTree;
-        Tree botRightTree;
-
-        public Tree()
-        {
-            topLeft = new Vector2(0, 0);
-            botRight = new Vector2(0, 0);
-            boundary = new AABB(new Vector2(0, 0), new Vector2(0, 0));
-        }
+        Tree northWest;
+        Tree northEast;
+        Tree southWest;
+        Tree southEast;
 
         public Tree(Vector2 topL, Vector2 botR)
         {
-            topLeft = topL;
-            botRight = botR;
-            Vector2 halfDim = new Vector2((botR.x - topL.x) / 2, (botR.y - topL.y) / 2);
-            Vector2 center = new Vector2(topL.x + halfDim.x, topL.y + halfDim.y);
-            boundary = new AABB(center, halfDim);
+            Vector2 halfDim = new Vector2((botR.x - topL.x) / 2, (topL.y - botR.y) / 2);
+            Vector2 center = new Vector2(topL.x + halfDim.x, topL.y - halfDim.y);
+            bounds = new AABB(center, halfDim);
         }
 
         // Insert a node into the quadtree
-        public void Insert(Node node)
+        public bool Insert(Node node)
         {
-            // Current quad cannot contain it
-            if (!InBoundary(node.pos))
-                return;
-
-            // We are at a quad of unit area
-            // We cannot subdivide this quad further
-            if (Mathf.Abs(topLeft.x - botRight.x) <= 1 &&
-                Mathf.Abs(topLeft.y - botRight.y) <= 1)
+            // Ignore objects that do not belong in this quad tree
+            if (!bounds.ContainsPoint(node.position))
             {
-                n = node;
-                return;
+                return false;
             }
 
-            if ((topLeft.x + botRight.x) / 2 >= node.pos.x)
+            // If there is space in this quad tree, add the object here
+            if (nodes.Count < treeCapacity)
             {
-                // Indicates topLeftTree
-                if ((topLeft.y + botRight.y) / 2 >= node.pos.y)
-                {
-                    if (topLeftTree == null)
-                    {
-                        topLeftTree = new Tree(
-                            new Vector2(topLeft.x, topLeft.y),
-                            new Vector2((topLeft.x + botRight.x) / 2, (topLeft.y + botRight.y) / 2));
-                    }
-
-                    topLeftTree.Insert(node);
-                }
-
-                // Indicates botLeftTree
-                else
-                {
-                    if (botLeftTree == null)
-                    {
-                        botLeftTree = new Tree(
-                            new Vector2(topLeft.x, (topLeft.y + botRight.y) / 2),
-                            new Vector2((topLeft.x + botRight.x) / 2, botRight.y));
-                    }
-
-                    botLeftTree.Insert(node);
-                }
+                nodes.Add(node);
+                return true;
             }
-            else
+
+            // Otherwise, subdivide and then add the point to whichever node will accept it
+            if (northWest == null)
             {
-                // Indicates topRightTree
-                if ((topLeft.y + botRight.y) / 2 >= node.pos.y)
-                {
-                    if (topRightTree == null)
-                    {
-                        topRightTree = new Tree(
-                            new Vector2((topLeft.x + botRight.x) / 2, topLeft.y),
-                            new Vector2(botRight.x, (topLeft.y + botRight.y) / 2));
-                    }
-
-                    topRightTree.Insert(node);
-                }
-
-                // Indicates botRightTree
-                else
-                {
-                    if (botRightTree == null)
-                    {
-                        botRightTree = new Tree(
-                            new Vector2((topLeft.x + botRight.x) / 2, (topLeft.y + botRight.y) / 2),
-                            new Vector2(botRight.x, botRight.y));
-                    }
-
-                    botRightTree.Insert(node);
-                }
+                Subdivide();
             }
+
+            if (northWest.Insert(node)) return true;
+            if (northEast.Insert(node)) return true;
+            if (southWest.Insert(node)) return true;
+            if (southEast.Insert(node)) return true;
+
+            // Otherwise, the point cannot be inserted for some unknown reason (this should never happen)
+            return false;
         }
 
-        // Find a node in a quadtree
-        public Node Search(Vector2 p)
+        private void Subdivide()
         {
-            // Current quad cannot contain it
-            if (!InBoundary(p))
-                return null;
-
-            // We are at a quad of unit length
-            // We cannot subdivide this quad further
-            if (n != null)
-                return n;
-
-            if ((topLeft.x + botRight.x) / 2 >= p.x)
-            {
-                // Indicates topLeftTree
-                if ((topLeft.y + botRight.y) / 2 >= p.y)
-                {
-                    if (topLeftTree == null)
-                        return null;
-                    return topLeftTree.Search(p);
-                }
-
-                // Indicates botLeftTree
-                else
-                {
-                    if (botLeftTree == null)
-                        return null;
-                    return botLeftTree.Search(p);
-                }
-            }
-            else
-            {
-                // Indicates topRightTree
-                if ((topLeft.y + botRight.y) / 2 >= p.y)
-                {
-                    if (topRightTree == null)
-                        return null;
-                    return topRightTree.Search(p);
-                }
-
-                // Indicates botRightTree
-                else
-                {
-                    if (botRightTree == null)
-                        return null;
-                    return botRightTree.Search(p);
-                }
-            }
-        }
-
-        public void Draw()
-        {
-            // draw myself
-            boundary.Draw();
-
-            // draw children
-            if (topLeftTree != null)
-                topLeftTree.Draw();
-
-            if (topRightTree != null)
-                topRightTree.Draw();
-
-            if (botLeftTree != null)
-                botLeftTree.Draw();
-
-            if (botRightTree != null)
-                botRightTree.Draw();
-        }
-
-        // Check if current quadtree contains the Vector2
-        bool InBoundary(Vector2 p)
-        {
-            return (p.x >= topLeft.x &&
-                p.x <= botRight.x &&
-                p.y >= topLeft.y &&
-                p.y <= botRight.y);
+            northWest = new Tree(new Vector2(bounds.topLeft.x, bounds.topLeft.y), new Vector2(bounds.center.x, bounds.center.y));
+            northEast = new Tree(new Vector2(bounds.center.x, bounds.topLeft.y), new Vector2(bounds.botRight.x, bounds.center.y));
+            southWest = new Tree(new Vector2(bounds.topLeft.x, bounds.center.y), new Vector2(bounds.center.x, bounds.botRight.y));
+            southEast = new Tree(new Vector2(bounds.center.x, bounds.center.y), new Vector2(bounds.botRight.x, bounds.botRight.y));
         }
 
         // Find all nodes that appear within a range
@@ -371,35 +214,92 @@ public class QuadTree : MonoBehaviour
             List<Node> nodesInRange = new List<Node>();
 
             // Automatically abort if the range does not intersect this quad
-            if (!boundary.IntersectsAABB(range))
+            if (!bounds.IntersectsAABB(range))
                 return nodesInRange; // empty list
 
             // Check objects at this quad level
-            if (n != null && range.ContainsPoint(n.pos))
-                nodesInRange.Add(n);
+            foreach (Node n in nodes)
+            {
+                if (range.ContainsPoint(n.position))
+                    nodesInRange.Add(n);
+            }
 
-            // Terminate here, if there are no children
-            if (topLeftTree != null)
-                nodesInRange.AddRange(topLeftTree.QueryRange(range));
+            if (northWest == null)
+                return nodesInRange;
 
-            if (topRightTree != null)
-                nodesInRange.AddRange(topRightTree.QueryRange(range));
-
-            if (botLeftTree != null)
-                nodesInRange.AddRange(botLeftTree.QueryRange(range));
-
-            if (botRightTree != null)
-                nodesInRange.AddRange(botRightTree.QueryRange(range));
+            nodesInRange.AddRange(northWest.QueryRange(range));
+            nodesInRange.AddRange(northEast.QueryRange(range));
+            nodesInRange.AddRange(southWest.QueryRange(range));
+            nodesInRange.AddRange(southEast.QueryRange(range));
 
             return nodesInRange;
         }
-    }
 
-    private void OnDrawTree()
-    {
-        if (root != null)
+        public void Draw()
         {
-            root.Draw();
+            // draw myself
+            bounds.Draw();
+
+            // bail if not subdivided
+            if (northWest == null) return;
+
+            // draw children
+            northWest.Draw();
+            northEast.Draw();
+            southWest.Draw();
+            southEast.Draw();
         }
     }
 }
+
+/*
+// Find a node in a quadtree
+public Node Search(Vector2 p)
+{
+    // Current quad cannot contain it
+    if (!InBoundary(p))
+        return null;
+
+    // We are at a quad of unit length
+    // We cannot subdivide this quad further
+    if (nodes != null)
+        return nodes;
+
+    if ((topLeft.x + botRight.x) / 2 >= p.x)
+    {
+        // Indicates topLeftTree
+        if ((topLeft.y + botRight.y) / 2 >= p.y)
+        {
+            if (northWest == null)
+                return null;
+            return northWest.Search(p);
+        }
+
+        // Indicates botLeftTree
+        else
+        {
+            if (southWest == null)
+                return null;
+            return southWest.Search(p);
+        }
+    }
+    else
+    {
+        // Indicates topRightTree
+        if ((topLeft.y + botRight.y) / 2 >= p.y)
+        {
+            if (northEast == null)
+                return null;
+            return northEast.Search(p);
+        }
+
+        // Indicates botRightTree
+        else
+        {
+            if (southEast == null)
+                return null;
+            return southEast.Search(p);
+        }
+    }
+}
+*/
