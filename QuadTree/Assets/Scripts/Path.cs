@@ -29,7 +29,7 @@ public class Path
         line.transform.position = start;
         line.AddComponent<LineRenderer>();
         LineRenderer lr = line.GetComponent<LineRenderer>();
-        lr.material = new Material(Shader.Find("Unlit/Color"));
+        lr.material = new Material(Shader.Find("Legacy Shaders/Diffuse"));
         lr.material.color = color;
         lr.startWidth = width;
         lr.endWidth = width;

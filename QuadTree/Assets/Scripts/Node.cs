@@ -42,6 +42,7 @@ public class Node
 
         mesh.transform.position = new Vector3(position.x, position.y);
         mesh.transform.localScale = new Vector3(scale, scale, scale);
+        mesh.GetComponent<Renderer>().material.shader = Shader.Find("Legacy Shaders/Diffuse");
 
         if (isSpawner)
         {

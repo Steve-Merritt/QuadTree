@@ -26,7 +26,7 @@ public class DrawingUtils
         myLine.transform.position = start;
         myLine.AddComponent<LineRenderer>();
         LineRenderer lr = myLine.GetComponent<LineRenderer>();
-        lr.material = new Material(Shader.Find("Unlit/Color"));
+        lr.material = new Material(Shader.Find("Legacy Shaders/Diffuse"));
         lr.material.color = color;
         lr.startWidth = width;
         lr.endWidth = width;
